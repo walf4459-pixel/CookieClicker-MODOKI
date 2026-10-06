@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>クッキークリッカー</title>
+<meta name="theme-color" content="#3b2a20">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="クッキー">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+:root{--bg:#3b2a20;--cookie:#d9a05b;--chip:#4a2c1a;--ink:#fbeedd;--dim:#c9ad93}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif;
+  touch-action:manipulation;overscroll-behavior:none}
+body{display:flex;flex-direction:column;align-items:center;justify-content:safe center;overflow-y:auto;
+  padding:calc(env(safe-area-inset-top) + 14px) 0 calc(env(safe-area-inset-bottom) + 8px)}
+#app{display:flex;flex-direction:column;align-items:center;gap:12px}
+#left,#ups{display:flex;flex-direction:column;align-items:center;gap:12px}
+#left{gap:8px}
+#count{font-size:calc(clamp(44px,14vw,72px) * var(--k,1));font-weight:800;line-height:1}
+#count small{font-size:.35em;font-weight:600;color:var(--dim);margin-left:.3em}
+#top{text-align:center}
+#cps{margin-top:6px;font-size:15px;font-weight:600;color:var(--dim);font-variant-numeric:tabular-nums}
+#cookie{flex:0 0 auto;width:min(52vw,200px);aspect-ratio:1;border:0;background:none;padding:0;cursor:pointer;transition:transform .08s}
+#cookie:active{transform:scale(.92)}
+#cookie:focus-visible{outline:3px solid var(--ink);outline-offset:8px;border-radius:50%}
+#cookie .emoji{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:min(44vw,168px);line-height:1;filter:drop-shadow(0 8px 0 rgba(0,0,0,.3))}
+.pop{position:fixed;pointer-events:none;font-weight:800;font-size:24px;text-shadow:0 2px 0 rgba(0,0,0,.5);animation:up .7s ease-out forwards}
+@keyframes up{to{transform:translateY(-70px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.pop{animation-duration:.01s}#cookie{transition:none}}
+.up{position:relative;overflow:hidden;width:min(88vw,340px);display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;border-radius:14px;background:#2b1d15;color:var(--ink);padding:12px 16px;font:inherit;cursor:pointer;text-align:left;box-shadow:inset 4px 0 0 #e8b64a}
+.up:disabled{opacity:.45;cursor:default;box-shadow:none}
+.up:not(:disabled):active{background:#1f140e}
+.up .t{font-weight:700;font-size:16px}
+.up .lv{font-size:13px;font-weight:700;color:#e8b64a;margin-left:.4em}
+.up .d{font-size:12px;color:var(--dim);margin-top:2px}
+.up .c{font-weight:800;white-space:nowrap}
+.lucky{flex-direction:column;align-items:stretch;gap:10px;cursor:default}
+.acts{display:flex;gap:8px}
+.act{flex:1;border:0;border-radius:10px;background:#1f140e;color:var(--ink);font:inherit;font-weight:700;padding:9px 8px;cursor:pointer;text-align:center}
+.act{min-width:0}
+#fc{position:fixed;right:0;top:35%;z-index:50;display:flex;align-items:flex-start;transform:translateX(calc(100% - 34px));transition:transform .25s}
+#fc.open{transform:none}
+#fcTab{writing-mode:vertical-rl;width:34px;padding:12px 0;border:0;border-radius:10px 0 0 10px;background:#2b1d15;color:var(--ink);font:inherit;font-weight:700;cursor:pointer}
+#fcPanel{width:210px;max-height:60vh;overflow:auto;background:#2b1d15;padding:10px 12px;border-radius:0 0 0 12px;font-size:12px;padding-right:calc(12px + env(safe-area-inset-right,0px))}
+#fcPanel .t{font-size:14px}
+.fr{display:flex;justify-content:space-between;gap:6px;padding:2px 0;color:var(--dim)}
+.fr b{color:#e8b64a}
+.wgrid{display:flex;gap:8px}.wcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.wcol>.act{flex:none}#wMinus,#wPlus,#dMinus,#dPlus{flex:1;font-size:18px;padding:5px 8px}
+#up,#multi{flex:.85}  /* 強化・重ねるは少し狭く、まとめ買いを広めに */
+#buyall{flex:1.3}
+.act small{display:block;margin-top:2px;font-size:12px;font-weight:700;color:#e8b64a}
+.act:disabled{opacity:.45;cursor:default}
+.act:not(:disabled):active{background:#0f0905}
+.off{display:none !important}
+.up.compact{gap:6px;padding:9px 16px}
+/* 焼き直しが解放された瞬間の演出 */
+.rbfx{animation:rbcard 1.5s ease-out}
+@keyframes rbcard{0%{transform:scale(.6);opacity:0;box-shadow:0 0 0 0 rgba(255,212,90,0)}30%{transform:scale(1.08);opacity:1;box-shadow:0 0 28px 8px rgba(255,212,90,.85)}60%{transform:scale(1)}100%{box-shadow:0 0 0 0 rgba(255,212,90,0)}}
+.rbp{position:fixed;z-index:60;pointer-events:none;font-size:22px;transform:translate(-50%,-50%);animation:rbburst 1s ease-out forwards}
+@keyframes rbburst{0%{transform:translate(-50%,-50%) scale(.4);opacity:1}100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.2);opacity:0}}
+@media (prefers-reduced-motion:reduce){.rbfx{animation:none}}
+.compact .act{padding:6px 8px}
+.up .bar{position:absolute;left:0;bottom:0;height:1.5px;width:0;background:#e8b64a}
+.up .bar2{bottom:3px;background:#6fb7e8}
+#xfer{background:none;border:0;color:var(--dim);font:inherit;font-size:13px;text-decoration:underline;padding:8px;cursor:pointer}
+#xbox{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:20}
+#xbox.on{display:flex}
+#xpanel{width:min(94vw,440px);max-height:92vh;overflow-y:auto;background:#2b1d15;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+#xpanel h2{margin:0;font-size:17px}
+#xpanel h3{margin:6px 0 0;font-size:14px}
+#xpanel p{margin:0;font-size:12px;color:var(--dim)}
+#xpanel textarea{width:100%;height:92px;resize:none;border:0;border-radius:10px;background:#1f140e;color:var(--ink);font:16px/1.4 ui-monospace,Menlo,monospace;padding:8px;user-select:text;-webkit-user-select:text;word-break:break-all}
+#xpanel .row{display:flex;gap:8px}
+#xmsg{min-height:1.3em;font-size:13px}
+.pop.bonus{color:#ffd45a}
+.pop.big{color:#5fe0a0}
+.pop.huge{color:#ff5a8a}
+/* 横長の画面: クッキーの下に、強化欄を横並び */
+@media (orientation:landscape) and (min-width:560px){
+  body{padding-top:calc(env(safe-area-inset-top) + 12px);padding-bottom:calc(env(safe-area-inset-bottom) + 12px)}
+  #app{gap:12px}
+  #left{gap:8px}
+  #count{font-size:calc(clamp(30px,9vh,56px) * var(--k,1))}
+  #cookie{width:min(30vh,170px)}
+  #cookie .emoji{font-size:min(26vh,146px)}
+  #ups{flex-direction:row;flex-wrap:wrap;align-items:stretch;gap:12px;width:min(94vw,720px)}
+  .up{width:auto;flex:1 1 280px;min-width:0}
+  #wcard{flex-basis:100%}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="left">
+<div id="top"><div id="count">0<small>個</small></div><div id="cps">CPS 0.0</div></div>
+<button id="cookie" aria-label="クッキーをクリック">
+  <span class="emoji" aria-hidden="true">🍪</span>
+</button>
+</div>
+<div id="ups">
+<div id="autoCard" class="up lucky">
+  <div>
+    <div class="t">自動クッキー <span class="lv" id="lvB"></span><span class="lv" id="lvA"></span></div>
+    <div class="d" id="autoDesc"></div>
+    <div class="d" id="bonusDesc"></div>
+  </div>
+  <div class="acts" id="autoActs">
+    <button id="auto" class="act">強化<small id="autoCost"></small></button>
+    <button id="bonus" class="act">ボーナス<small id="bonusCost"></small></button>
+  </div>
+  <i class="bar" id="bar"></i>
+  <i class="bar bar2" id="bar2"></i>
+</div>
+<div id="lucky" class="up lucky">
+  <div>
+    <div class="t">ラッキークッキー <span class="lv" id="lvM"></span><span class="lv" id="lvL"></span></div>
+    <div class="d" id="chance"></div>
+    <div class="d" id="multiDesc"></div>
+  </div>
+  <div class="acts">
+    <button id="up" class="act">強化<small id="cost"></small></button>
+    <button id="multi" class="act">重ねる<small id="multiCost"></small></button>
+    <button id="buyall" class="act off">まとめ買い<small id="buyallSub"></small></button>
+  </div>
+</div>
+<div id="rcard" class="up lucky off">
+  <div>
+    <div class="t">焼き直し <span class="lv" id="lvR"></span></div>
+    <div class="d" id="rbDesc"></div>
+  </div>
+  <div class="acts" id="rbActs">
+    <button id="rebake" class="act">焼き直す<small id="rbSub"></small></button>
+  </div>
+</div>
+<div id="wcard" class="up lucky off">
+  <div>
+    <div class="t">天気</div>
+    <div class="d">適温 20℃±2.5　適湿 40%±2.5</div>
+    <div class="d">適温だと2倍、適湿だと1.5倍、どちらも適応で3倍</div>
+    <div class="d">どちらも外れると生産効率は半分</div>
+    <div class="d" id="wIn"></div>
+    <div class="d" id="wCost"></div>
+  </div>
+  <div class="wgrid">
+    <div class="wcol">
+      <button id="wMode" class="act"></button>
+      <div class="acts"><button id="wMinus" class="act">−</button><button id="wPlus" class="act">+</button></div>
+      <button id="wUp" class="act"></button>
+    </div>
+    <div class="wcol">
+      <button id="dMode" class="act"></button>
+      <div class="acts"><button id="dMinus" class="act">−</button><button id="dPlus" class="act">+</button></div>
+      <button id="dUp" class="act"></button>
+    </div>
+  </div>
+  <div class="acts"><button id="eUp" class="act"></button></div>
+</div>
+</div>
+<button id="xfer">引き継ぎコード</button>
+</div>
+<div id="fc" class="off">
+  <button id="fcTab">天気予報</button>
+  <div id="fcPanel"><div class="t">天気予報（外）</div><div class="d">◎適温・適湿　△どちらか　×外れ<br>（今の設定で過ごした場合）</div><div id="fcRows"></div></div>
+</div>
+
+<div id="xbox">
+  <div id="xpanel" role="dialog" aria-label="引き継ぎコード">
+    <h2>引き継ぎコード</h2>
+    <h3>コードを作る</h3>
+    <p>今の進行状況をコードにします。別の端末やブラウザで読み込むと、続きから遊べます。</p>
+    <textarea id="xout" readonly></textarea>
+    <div class="row"><button class="act" id="xcopy">コピー</button></div>
+    <h3>コードを読み込む</h3>
+    <textarea id="xin" placeholder="ここにコードを貼り付け"></textarea>
+    <div class="row"><button class="act" id="xload">読み込む</button></div>
+    <div id="xmsg"></div>
+    <div class="row"><button class="act" id="xclose">閉じる</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var KEY = 'cookie-clicker-v1';
+  var count = 0, level = 0, autoLv = 0, layers = 1, bonusLv = 0, bonusCnt = 0, rebake = 0, rbPending = false, rbTimer = null, rbReadyPrev = null, wMode = 0, dhOn = 0, wSet = 24, hSet = 50, acLv = 0, dhLv = 0, efLv = 0, wReadyPrev = null;  // layers = ラッキーの重数（判定回数）
+
+  // ラッキークッキー: 100個〜(20ずつ増加)、確率1.0%から0.1%ずつ、最大75%
+  var BASE_COST = 100;  // 強化1回の価格 = 100 + 増加幅 × レベル（増加幅は焼き直しの回数で変わる。costStep() 参照）
+  var BASE_TENTHS = 10, STEP_TENTHS = 1, MAX_TENTHS = 750;
+  // 自動クッキー: 200個〜(10ずつ増加)、n=60秒から短縮（単位: 1/100秒）
+  var A_COST = 50, A_STEP = 10, A_MIN = 50;
+  // ラッキーの重ねがけ: 最大10重。次の重数の価格 = 現在のラッキー強化価格 × 次の重数
+  var MAX_LAYERS = 10;
+  // ボーナス: 200個〜(50ずつ増加)。クッキーをn個入手するごとに+1個（タップ・自動とも）。初回n=50、強化ごとに1減少、最小2
+  var B_COST = 200, B_STEP = 50, B_START = 50, B_MIN = 2;
+  // 焼き直し: ラッキークッキーが完凸になると、その欄が変化。ラッキー(強化・重ね)だけをリセットして、確率に恒久+1%（合計確率の上限は95%）
+  // 確率バフは+20%（焼き直し20回）まで。21回目以降は、重ねるの上限が+1重ずつ増える（上限100重。処理が重くなりすぎないように）
+  var RB_TENTHS = 10, CAP_TENTHS = 950, R_MAX = Math.floor((CAP_TENTHS - MAX_TENTHS) / RB_TENTHS);
+  var LAYERS_CAP = 100, R_END = R_MAX + (LAYERS_CAP - MAX_LAYERS);  var W_LV_MAX = 100;  // エアコン・除湿機の最大Lv（読み込みより前に必要）
+
+  var $cps = document.getElementById('cps'), log = [], t0 = Date.now();
+  function gain(g, nt){ log.push([Date.now(), g, nt]); }  // g=増えた個数, nt=うちタップの基本1個を除いた分
+  var $c = document.getElementById('count'), $b = document.getElementById('cookie'),
+      $up = document.getElementById('up'), $chance = document.getElementById('chance'), $cost = document.getElementById('cost'),
+      $auto = document.getElementById('auto'), $autoDesc = document.getElementById('autoDesc'),
+      $autoCost = document.getElementById('autoCost'),
+      $bonus = document.getElementById('bonus'), $bonusDesc = document.getElementById('bonusDesc'), $bonusCost = document.getElementById('bonusCost'),
+      $multi = document.getElementById('multi'), $multiDesc = document.getElementById('multiDesc'), $multiCost = document.getElementById('multiCost'), $bar = document.getElementById('bar'), $bar2 = document.getElementById('bar2');
+
+  try{
+    var raw = localStorage.getItem(KEY);
+    if(raw){
+      if(raw.charAt(0) === '{'){ var d = JSON.parse(raw); count = Math.max(0, Math.floor(Number(d.count)) || 0);  // |0 だと21億を超えたときに壊れるので使わない
+       level = d.level|0; autoLv = d.auto|0; rebake = Math.max(0, Math.min(R_END, d.rb|0)); layers = Math.max(1, Math.min(maxL(), d.layers|0 || 1)); bonusLv = d.bonus|0; bonusCnt = d.bcnt|0; wApply(d); }
+      else { count = parseInt(raw, 10) || 0; }
+    }
+  }catch(e){}
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify({count:count, level:level, auto:autoLv, layers:layers, bonus:bonusLv, bcnt:bonusCnt, rb:rebake, wm:wMode, wd:dhOn, ws:wSet, hs:hSet, al:acLv, dl:dhLv, ef:efLv})); }catch(e){} }
+
+  // 確率（1/10 %単位）: 1.0%から、20%未満は+1%、50%未満は+0.5%、それ以降は+0.2%ずつ。最大75%
+  function stepT(t){ return t < 200 ? 10 : (t < 500 ? 5 : 2); }
+  function calcT(lv){
+    var t = BASE_TENTHS;
+    for(var i = 0; i < lv && t < MAX_TENTHS; i++) t += stepT(t);
+    return Math.min(MAX_TENTHS, t);
+  }
+  var curT = null;  // キャッシュ（強化したら null に戻す）
+  function baseT(){ if(curT === null) curT = calcT(level); return curT; }  // 強化レベルだけで決まる確率
+  function buff(){ return Math.min(rebake, R_MAX); }  // 確率バフ（%）。+20%で打ち止め
+  function maxL(){ return MAX_LAYERS + Math.max(0, rebake - R_MAX); }  // 重ねるの上限。焼き直し21回目から+1重ずつ
+  function tenths(){ return Math.min(CAP_TENTHS, baseT() + buff() * RB_TENTHS); }  // 焼き直しバフ込みの確率
+  // 強化の価格の増加幅: 焼き直し0回目は+10、1〜10回目は+20、11回目以降は+50
+  function costStep(){ return rebake === 0 ? 10 : (rebake <= 10 ? 20 : 50); }
+  function costAt(lv){ return BASE_COST + costStep() * lv; }
+  function cost(){ return costAt(level); }
+  function bn(lv){ return Math.max(B_MIN, B_START - (lv - 1)); }
+  function bCost(){ return B_COST + B_STEP * bonusLv; }
+  function mCost(){ return cost() * (layers + 1); }
+  var LV_MAX = (function(){ var l = 0; while(calcT(l) < MAX_TENTHS) l++; return l; })();  // 確率が最大になる強化レベル
+  // まとめ買いの内訳: 重ねるを先に買い切ってから強化（重ねるの価格は強化レベルが低いほど安いため）。重ねるを買い切れないうちは強化しない
+  function planBuy(){
+    var c = count, lay = layers, lv = level, ml = maxL(), nL = 0, nV = 0, k;
+    while(lay < ml){
+      k = costAt(lv) * (lay + 1);
+      if(c < k) return {nL:nL, nV:nV};
+      c -= k; lay++; nL++;
+    }
+    while(lv < LV_MAX){
+      k = costAt(lv);
+      if(c < k) break;
+      c -= k; lv++; nV++;
+    }
+    return {nL:nL, nV:nV};
+  }
+  function pct(t){ return (t / 10).toFixed(1); }
+  // 桁数ごとの色（1桁, 2桁, 3桁 ... 12桁以上）。「+N」の表示に使う
+  var DIGIT_COLORS = ['#fbeedd', '#ffd45a', '#ffa94d', '#ff7a59', '#ff5a8a', '#e06bff', '#9a85ff', '#5aaeff', '#3fd6d0', '#5fe0a0', '#b8ea4a', '#ffffff'];
+  function digitColor(n){ var d = String(Math.floor(Math.abs(n))).length; return DIGIT_COLORS[Math.min(d, DIGIT_COLORS.length) - 1]; }
+  function fmt(n){ return n.toLocaleString('ja-JP'); }
+  // 所持数の表示: 8桁まではそのまま。9桁目に入ったら「万」をつけ（1億 → 10,000万）、そこから4桁ずつ 万 → 億 → 兆 … と単位が上がる。小数点はつけない（切り捨て）
+  var UNITS = ['万', '億', '兆', '京', '垓', '秭', '穣', '溝', '澗', '正', '載', '極', '恒河沙', '阿僧祇', '那由他', '不可思議', '無量大数'];
+  function exactBig(n){  // 1e15以上は誤差が出るので、有効15桁の10進数として扱う（1e24が「9999垓」にならないように）
+    if(n < 1e15) return BigInt(n);
+    var m = n.toExponential(14).split('e');
+    return BigInt(m[0].replace('.', '')) * 10n ** BigInt(parseInt(m[1], 10) - 14);
+  }
+  // CPSの表示: 4桁までは小数1桁、5〜7桁は整数のみ。8桁目に入ったら「k」をつけ、そこから3桁ずつ k → M → G → T … と上がる。単位がつくと小数点はつけない
+  var SI = ['k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y', 'R', 'Q'];
+  function fmtRate(x){
+    var n = Math.floor(x);
+    if(!isFinite(n)) return '0.0';
+    if(n < 10000){ var t = x.toFixed(1); return parseFloat(t) >= 10000 ? '10000' : t; }  // 4桁までは小数1桁
+    if(n < 10000000) return String(n);  // 5桁目から小数点以下は見せない
+    var big = exactBig(n);
+    var idx = Math.min(SI.length, Math.floor((String(big).length - 8) / 3) + 1);  // 8〜10桁=k、11〜13桁=M、14〜16桁=G …
+    return String(big / (10n ** BigInt(3 * idx))) + SI[idx - 1];
+  }
+  function fmtCount(n){
+    n = Math.floor(n);
+    if(!isFinite(n) || n < 100000000){ var t0 = fmt(isFinite(n) ? n : 0); return {t: t0, u: '', w: numW(t0)}; }
+    var big = exactBig(n);
+    var idx = Math.min(UNITS.length, Math.floor((String(big).length - 9) / 4) + 1);  // 9〜12桁=万、13〜16桁=億、17〜20桁=兆 …
+    var t = (big / (10n ** BigInt(4 * idx))).toLocaleString('ja-JP');
+    return {t: t, u: UNITS[idx - 1], w: numW(t)};  // 単位の文字は「個」と同じ小さい文字で、数字のあとに付ける
+  }
+  function numW(t){  // 数字部分の文字幅の目安（em）。長いときに文字サイズを縮めるのに使う
+    var w = 0;
+    for(var i = 0; i < t.length; i++) w += (t.charAt(i) === ',') ? 0.3 : 0.6;
+    return w;
+  }
+
+  // 購入回数 lv のときの間隔（1/100秒）。1回目=60秒、30秒以降は0.1秒刻み、10秒以降は0.05秒刻み、最低0.5秒
+  function nHund(lv){
+    var n = 6000;
+    for(var i = 1; i < lv; i++){ n = Math.max(A_MIN, n - (n > 3000 ? 50 : (n > 1000 ? 10 : 5))); }
+    return n;
+  }
+  function sec(h){ return String(parseFloat((h / 100).toFixed(2))); }
+  function aCost(){ return A_COST + A_STEP * autoLv; }
+  var curN = autoLv > 0 ? nHund(autoLv) : 0, acc = 0;
+
+  function render(){
+    var fc = fmtCount(count);
+    $c.innerHTML = fc.t + '<small>' + fc.u + '個</small>';
+    $c.style.setProperty('--k', Math.min(1, 6.65 / (fc.w + 0.3 + 0.35 * (fc.u.length + 1))).toFixed(3));  // はみ出さないよう、長いときは文字を縮める
+
+    document.getElementById('lvL').textContent = 'Lv.' + level;
+    document.getElementById('lvA').textContent = 'Lv.' + autoLv;
+    document.getElementById('lvB').textContent = bonusLv + '段';  // ボーナスのレベル（重と同じ漢字1文字の数え方）
+    var bt = baseT(), t = tenths(), max = bt >= MAX_TENTHS;
+    $chance.innerHTML = pct(t) + '%でクッキーを追加入手<br>' + (max ? '(最大' : '(強化で+' + pct(stepT(bt)) + '%\u3000最大75%') + (buff() > 0 ? '\u3000焼き直し+' + buff() + '%込み' : '') + ')';
+    $cost.textContent = max ? 'MAX' : fmt(cost()) + ' 個';
+    $up.disabled = max || count < cost();
+
+    var mMax = layers >= maxL();
+    document.getElementById('lvM').textContent = layers + '重';
+    $multiDesc.textContent = mMax ? '判定' + layers + '回(最大)' :
+      '判定' + layers + '回→' + (layers + 1) + '回(最大' + maxL() + '重)';
+    $multiCost.textContent = mMax ? 'MAX' : fmt(mCost()) + ' 個';
+    $multi.disabled = mMax || count < mCost();
+
+    var aMax = autoLv > 0 && curN <= A_MIN;
+    if(autoLv === 0){
+      $autoDesc.innerHTML = '60秒ごとにクッキーを1個自動入手<br>(購入で開始\u3000最短0.5秒)';
+    }else{
+      $autoDesc.innerHTML = aMax
+        ? sec(curN) + '秒ごとにクッキーを1個自動入手(最短)'  // MAXは1行にして縦幅を詰める
+        : sec(curN) + '秒ごとにクッキーを1個自動入手<br>(強化で' + sec(nHund(autoLv + 1)) + '秒\u3000最短0.5秒)';
+    }
+    $autoCost.textContent = aMax ? 'MAX' : fmt(aCost()) + ' 個';
+    $auto.disabled = aMax || count < aCost();
+    // 自動クッキーがMAXになったら、強化ボタンをなくして欄を狭くする
+    $auto.classList.toggle('off', aMax);
+    document.getElementById('autoCard').classList.toggle('compact', aMax);
+
+    var bMax = bonusLv > 0 && bn(bonusLv) <= B_MIN;
+    $bonusDesc.innerHTML = bonusLv === 0
+      ? 'クッキーを' + B_START + '個入手するごとに+1個<br>(購入で開始\u3000最小' + B_MIN + '個ごと)'
+      : (bMax
+        ? 'クッキーを' + bn(bonusLv) + '個入手するごとに+1個(最大)'  // 最大のときだけ改行しない
+        : 'クッキーを' + bn(bonusLv) + '個入手するごとに+1個<br>(強化で' + bn(bonusLv + 1) + '個ごと\u3000最小' + B_MIN + '個ごと)');
+    $bonusCost.textContent = bMax ? 'MAX' : fmt(bCost()) + ' 個';
+    $bonus.disabled = bMax || count < bCost();
+    // ボーナスもMAXならボタンをなくす。強化・ボーナスの両方がMAXなら、ボタンの行ごとなくす
+    $bonus.classList.toggle('off', bMax);
+    document.getElementById('autoActs').classList.toggle('off', aMax && bMax);
+
+    // 焼き直し中（1回目以降）は、ラッキーを買えるところまで一括購入できる
+    var pl = planBuy(), lMax = max && mMax;
+    document.getElementById('buyall').classList.toggle('off', rebake === 0);  // 強化・重ねると同じ横一列に並べる
+    document.getElementById('buyall').disabled = lMax || (pl.nL + pl.nV === 0);
+    document.getElementById('buyallSub').textContent = lMax ? 'MAX' : (pl.nL + pl.nV === 0 ? '資金不足' : '重+' + pl.nL + '\u3000強+' + pl.nV);
+
+    // ラッキークッキーが完凸になったら、その欄が焼き直しに変わる
+    var allMax = max && mMax, rMax = rebake >= R_END;  // ラッキーが完凸（強化MAX・重ねMAX）なら焼き直しに変わる。自動・ボーナスは関係なし
+    document.getElementById('lucky').classList.toggle('off', allMax);
+    document.getElementById('rcard').classList.toggle('off', !allMax);
+    document.getElementById('lvR').textContent = rebake + '回';
+    document.getElementById('rbDesc').innerHTML = rMax
+      ? '焼き直しは最大(確率+' + R_MAX + '% ・ ' + maxL() + '重)'  // 最大のときは1行にして縦幅を詰める
+      : rebake < R_MAX
+        ? 'ラッキークッキーだけをリセットして<br>確率に恒久+1%\u3000(今+' + rebake + '% → +' + (rebake + 1) + '%)'
+        : '確率バフは最大(+' + R_MAX + '%)。ラッキークッキーだけを<br>リセットして、重ねるの上限+1重\u3000(' + maxL() + '重 → ' + (maxL() + 1) + '重)';
+    document.getElementById('rbSub').textContent = rMax ? 'MAX' : (rbPending ? 'もう一度タップで確定' : 'ラッキーをリセット');
+    document.getElementById('rebake').disabled = rMax;
+    // 焼き直しがMAXなら、ボタンをなくして欄を狭くする
+    document.getElementById('rbActs').classList.toggle('off', rMax);
+    document.getElementById('rcard').classList.toggle('compact', rMax);
+    // 焼き直しが「できない → できる」に変わった瞬間だけ演出（読み込み直後は出さない）
+    var ready = allMax && !rMax;
+    if(rbReadyPrev === false && ready) rbFx();
+    rbReadyPrev = ready;
+    wRender();
+  }
+
+  function rbFx(id){
+    var card = document.getElementById(id || 'rcard');
+    card.classList.remove('rbfx'); void card.offsetWidth; card.classList.add('rbfx');
+    setTimeout(function(){ card.classList.remove('rbfx'); }, 1600);
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var r = card.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, i, a, dist, p;
+    function drop(e, ms){ setTimeout(function(){ if(e.parentNode) e.parentNode.removeChild(e); }, ms); }
+    for(i = 0; i < 18; i++){
+      a = Math.PI * 2 * i / 18 + Math.random() * 0.3; dist = 70 + Math.random() * 90;
+      p = document.createElement('div'); p.className = 'rbp'; p.textContent = (i % 3) ? '✨' : '🍪';
+      p.style.left = cx + 'px'; p.style.top = cy + 'px';
+      p.style.setProperty('--dx', (Math.cos(a) * dist).toFixed(0) + 'px'); p.style.setProperty('--dy', (Math.sin(a) * dist * 0.7).toFixed(0) + 'px');
+      document.body.appendChild(p); drop(p, 1100);
+    }
+  }
+
+  function pop(x, y, n, bonus){
+    var d = document.createElement('div');
+    // 色: 桁数ごと（所持数の表示と同じ色）
+    d.className = 'pop';
+    d.style.color = digitColor(n);
+    d.textContent = '+' + n;
+    d.style.left = (x - 12) + 'px';
+    d.style.top = (y - 30) + 'px';
+    document.body.appendChild(d);
+    setTimeout(function(){ d.remove(); }, 700);
+  }
+  // 1回の入手: 基本1個 + ラッキー判定（重数ぶん繰り返し、追加で入手した分も続けて判定）
+  function roll(){
+    var g = 1, t = tenths();
+    for(var l = 0; l < layers; l++){            // 重数ぶん判定を繰り返す
+      while(Math.random() * 1000 < t){ g++; }
+    }
+    return g;
+  }
+  // ボーナス: クッキーをn個入手するごとに+1個（タップ・自動どちらの入手も数える。ボーナス分は数えないが、ラッキー判定は乗る）
+  function applyBonus(got){ return Math.floor(applyBonus0(got) * zoneMult()); }  // 天気のゾーン倍率を最後に掛ける
+  function applyBonus0(got){
+    if(bonusLv < 1) return got;
+    var nn = bn(bonusLv);
+    bonusCnt += got;
+    var bb = Math.floor(bonusCnt / nn);
+    bonusCnt -= bb * nn;
+    var extra = 0;
+    for(var i = 0; i < bb; i++) extra += roll();  // ボーナスの+1個にもラッキー判定（連鎖あり）
+    return got + extra;
+  }
+  // ---- 天気（焼き直しがMAXで解放）: 外の気温・湿度は時刻から決まる。エアコン・除湿機で室内を整え、適温×2・適湿×1.5を狙う。使うと電気代（CPSの一部）がかかる
+  function wn(i){ var x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+  function wsm(t, per){ var u = t / per, i = Math.floor(u), f = u - i; f = f * f * (3 - 2 * f); return wn(i) * (1 - f) + wn(i + 1) * f; }
+  function wOut(at){
+    var d = new Date(at === undefined ? Date.now() : at), t = d.getTime(), doy = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000), hr = d.getHours() + d.getMinutes() / 60;
+    var di = 3.5 * Math.sin(2 * Math.PI * (hr - 9) / 24);
+    var tp = 16.5 - 11 * Math.cos(2 * Math.PI * (doy - 20) / 365) + di + (wsm(t, 6 * 3600000) - 0.5) * 8;
+    var h = 65 - di * 1.5 + (wsm(t + 9e6, 5 * 3600000) - 0.5) * 45;
+    return {t: tp, h: Math.max(25, Math.min(98, h))};
+  }
+  function acEff(){ return Math.min(0.95, 0.2 + 0.0075 * acLv); }
+  function dhEff(){ return Math.min(0.95, 0.2 + 0.0075 * dhLv); }
+  function wRoom(o){
+    var T = o.t, H = o.h;
+    if((wMode === 1 && wSet < o.t) || (wMode === 2 && wSet > o.t)) T = o.t + (wSet - o.t) * acEff();  // 冷房は下げる方向、暖房は上げる方向だけ
+    if(dhOn) H = o.h + (hSet - o.h) * dhEff();  // 外が設定より高ければ除湿、低ければ加湿（設定湿度の方向へ近づける）
+    return {t: T, h: H};
+  }
+  function wUnlocked(){ return rebake >= R_END; }
+  // 適温は20℃、適湿は40%。そこから±2.5までがゾーン
+  function zoneOk(r){ return {t: Math.abs(r.t - 20) <= 2.5, h: Math.abs(r.h - 40) <= 2.5}; }
+  function zoneMult(){
+    if(!wUnlocked()) return 1;
+    var r = wRoom(wOut());
+    var z = zoneOk(r), tOk = z.t, hOk = z.h;
+    return (tOk ? 2 : 1) * (hOk ? 1.5 : 1) * (1 + 0.01 * efLv * (tOk || hOk ? 1 : 0.5));  // 生産効率は1Lvごとに+1%。適温も適湿もない（ゾーンの外）ときは半分
+  }
+  function wPower(o){
+    var p = 0;
+    if((wMode === 1 && wSet < o.t) || (wMode === 2 && wSet > o.t)) p += Math.abs(wSet - o.t) * acEff();
+    if(dhOn) p += Math.abs(o.h - hSet) * dhEff() / 10;
+    return p;
+  }
+  function cpsNow(){
+    var now = Date.now(), v = 0;
+    for(var j = 0; j < log.length; j++) if(log[j][0] >= now - 5000) v += log[j][1];
+    return v / Math.max(1, Math.min(5, (now - t0) / 1000));
+  }
+  function wLvCost(lv){ return 5000000 * (lv + 1); }
+  function efCost(lv){ return 10000000 * (lv + 1); }
+  function wApply(d){
+    function nz(v, def, lo, hi){ return typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, Math.floor(v))) : def; }
+    wMode = nz(d.wm, 0, 0, 2); dhOn = nz(d.wd, 0, 0, 1); wSet = nz(d.ws, 24, 16, 32); hSet = nz(d.hs, 50, 30, 70);
+    acLv = nz(d.al, 0, 0, W_LV_MAX); dhLv = nz(d.dl, 0, 0, W_LV_MAX);
+    efLv = Math.min(nz(d.ef, 0, 0, W_LV_MAX * W_LV_MAX), acLv * dhLv);  // 生産効率のLvは、エアコンと除湿機のLvの積まで
+  }
+  function wRender(){
+    var on = wUnlocked(), card = document.getElementById('wcard');
+    card.classList.toggle('off', !on);
+    document.getElementById('fc').classList.toggle('off', !on);
+    if(wReadyPrev === false && on) rbFx('wcard');
+    wReadyPrev = on;
+    if(!on) return;
+    var o = wOut(), r = wRoom(o), m = zoneMult(), $ = function(id){ return document.getElementById(id); };
+    $('wIn').textContent = '室内 ' + r.t.toFixed(1) + '℃ / 湿度' + Math.round(r.h) + '%\u3000効果 ×' + (Math.round(m * 100) / 100);
+    $('wCost').textContent = '電気代 −' + fmtRate(Math.floor(cpsNow() * 0.005 * wPower(o))) + '/秒';
+    $('wMode').innerHTML = 'エアコン<small>' + ['停止', '冷房', '暖房'][wMode] + ' ' + wSet + '℃</small>';
+    $('dMode').innerHTML = (hSet > o.h ? '加湿機' : '除湿機') + '<small>' + (dhOn ? '入 ' + hSet + '%' : '切') + '</small>';
+    var a = acLv >= W_LV_MAX, b = dhLv >= W_LV_MAX;
+    $('wUp').innerHTML = '強化<small>Lv.' + acLv + '<br>' + (a ? 'MAX' : fmtRate(wLvCost(acLv))) + '</small>';
+    $('dUp').innerHTML = '強化<small>Lv.' + dhLv + '<br>' + (b ? 'MAX' : fmtRate(wLvCost(dhLv))) + '</small>';
+    var cap = acLv * dhLv, e = efLv >= cap;
+    $('eUp').innerHTML = '生産効率 強化<small>Lv.' + efLv + ' / 上限' + cap + '（稼ぎ+' + efLv + '%）\u3000' + (e ? (cap >= W_LV_MAX * W_LV_MAX ? 'MAX' : '上限（エアコン・除湿機を強化）') : fmtRate(efCost(efLv)) + ' 個') + '</small>';
+    $('eUp').disabled = e || count < efCost(efLv);
+    $('wUp').disabled = a || count < wLvCost(acLv);
+    if(document.getElementById('fc').classList.contains('open')) fcRender(o);
+    $('dUp').disabled = b || count < wLvCost(dhLv);
+  }
+  // 予報: これからの12時間（毎時）。今の設定で過ごした場合に、ゾーンへ入れるかも出す
+  function fcRender(o){
+    var H = 3600000, base = Math.floor(Date.now() / H), rows = '', k, t, w, z, mk, hh;
+    for(k = 0; k <= 12; k++){
+      t = k === 0 ? Date.now() : (base + k) * H;
+      w = wOut(t); z = zoneOk(wRoom(w));
+      mk = z.t && z.h ? '◎' : (z.t || z.h ? '△' : '×');
+      hh = k === 0 ? 'いま' : ('0' + new Date(t).getHours()).slice(-2) + ':00';
+      rows += '<div class="fr"><span>' + hh + '</span><span>' + w.t.toFixed(1) + '℃ / ' + Math.round(w.h) + '%</span><b>' + mk + '</b></div>';
+    }
+    document.getElementById('fcRows').innerHTML = rows;
+  }
+  document.getElementById('fcTab').addEventListener('click', function(){ document.getElementById('fc').classList.toggle('open'); wRender(); });
+  function wBind(id, f){ document.getElementById(id).addEventListener('click', function(){ f(); save(); render(); }); }
+  wBind('wMode', function(){ wMode = (wMode + 1) % 3; });
+  wBind('wMinus', function(){ wSet = Math.max(16, wSet - 1); });
+  wBind('wPlus', function(){ wSet = Math.min(32, wSet + 1); });
+  wBind('dMode', function(){ dhOn = dhOn ? 0 : 1; });
+  wBind('dMinus', function(){ hSet = Math.max(30, hSet - 5); });
+  wBind('dPlus', function(){ hSet = Math.min(70, hSet + 5); });
+  wBind('wUp', function(){ if(acLv < W_LV_MAX && count >= wLvCost(acLv)){ count -= wLvCost(acLv); acLv++; } });
+  wBind('eUp', function(){ if(efLv < acLv * dhLv && count >= efCost(efLv)){ count -= efCost(efLv); efLv++; } });
+  wBind('dUp', function(){ if(dhLv < W_LV_MAX && count >= wLvCost(dhLv)){ count -= wLvCost(dhLv); dhLv++; } });
+  setInterval(function(){  // 1秒ごとに電気代を引く
+    if(!wUnlocked()) return;
+    count = Math.max(0, count - Math.floor(cpsNow() * 0.005 * wPower(wOut())));
+    render();
+  }, 1000);
+
+  function click(x, y){
+    var g = applyBonus(roll());
+    count += g;
+    gain(g, g - 1);
+    pop(x, y, g, g > 1);
+    render();
+  }
+
+  $b.addEventListener('pointerdown', function(e){ e.preventDefault(); click(e.clientX, e.clientY); });
+  $b.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      var r = $b.getBoundingClientRect();
+      click(r.left + r.width/2, r.top + r.height/2);
+    }
+  });
+  $up.addEventListener('click', function(){
+    if($up.disabled) return;
+    count -= cost();
+    level += 1;
+    curT = null;
+    render(); save();
+  });
+  $multi.addEventListener('click', function(){
+    if($multi.disabled) return;
+    count -= mCost();
+    layers += 1;
+    render(); save();
+  });
+  document.getElementById('buyall').addEventListener('click', function(){
+    if(this.disabled) return;
+    var pl = planBuy(), i;
+    for(i = 0; i < pl.nL; i++){ count -= mCost(); layers += 1; }                  // 重ねるを先に
+    for(i = 0; i < pl.nV; i++){ count -= cost(); level += 1; }
+    curT = null;
+    render(); save();
+  });
+  $bonus.addEventListener('click', function(){
+    if($bonus.disabled) return;
+    count -= bCost();
+    bonusLv += 1;
+    render(); save();
+  });
+  $auto.addEventListener('click', function(){
+    if($auto.disabled) return;
+    count -= aCost();
+    autoLv += 1;
+    curN = nHund(autoLv);
+    render(); save();
+  });
+
+  // 焼き直し: ラッキークッキー（強化・重ね）だけをリセットして、確率に+1%。誤タップ防止に2回タップで確定
+  function rbReset(){ rbPending = false; clearTimeout(rbTimer); render(); }
+  document.getElementById('rebake').addEventListener('click', function(){
+    if(this.disabled) return;
+    if(!rbPending){ rbPending = true; clearTimeout(rbTimer); rbTimer = setTimeout(rbReset, 4000); render(); return; }
+    clearTimeout(rbTimer); rbPending = false;
+    rebake += 1; level = 0; layers = 1; curT = null;
+    render(); save();
+  });
+
+  // ---- 引き継ぎコード（サーバーなし。進行状況を文字列にして保存・復元する） ----
+  var XP = 'CK1';
+  function hash(str){ var h = 5381; for(var i = 0; i < str.length; i++){ h = ((h * 33) ^ str.charCodeAt(i)) >>> 0; } return h.toString(36); }
+  function b64e(str){ return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function b64d(str){ str = str.replace(/-/g, '+').replace(/_/g, '/'); while(str.length % 4) str += '='; return atob(str); }
+  function makeCode(){
+    var p = b64e(JSON.stringify({c:Math.floor(count), l:level, a:autoLv, y:layers, b:bonusLv, n:bonusCnt, r:rebake, wm:wMode, wd:dhOn, ws:wSet, hs:hSet, al:acLv, dl:dhLv, ef:efLv}));
+    return XP + '.' + p + '.' + hash(p);
+  }
+  function readCode(code){
+    var parts = code.replace(/\s+/g, '').split('.');
+    if(parts.length !== 3 || parts[0] !== XP || hash(parts[1]) !== parts[2]) return null;
+    var d;
+    try{ d = JSON.parse(b64d(parts[1])); }catch(e){ return null; }
+    var ok = ['c','l','a','y','b','n'].every(function(k){ return typeof d[k] === 'number' && isFinite(d[k]) && d[k] >= 0; });
+    if(ok && d.r !== undefined && !(typeof d.r === 'number' && isFinite(d.r) && d.r >= 0)) ok = false;  // 旧コードには r が無いので省略可
+    return ok ? d : null;
+  }
+  function applyCode(d){
+    count = Math.floor(d.c); level = Math.floor(d.l); autoLv = Math.floor(d.a);
+    bonusLv = Math.floor(d.b); bonusCnt = Math.floor(d.n);
+    rebake = Math.min(R_END, Math.floor(d.r || 0)); rbPending = false; clearTimeout(rbTimer); rbReadyPrev = null; wApply(d); wReadyPrev = null;
+    layers = Math.max(1, Math.min(maxL(), Math.floor(d.y) || 1));
+    curT = null; curN = autoLv > 0 ? nHund(autoLv) : 0; acc = 0; log = []; t0 = Date.now();
+    save(); render();
+  }
+  var $xbox = document.getElementById('xbox'), $xout = document.getElementById('xout'),
+      $xin = document.getElementById('xin'), $xmsg = document.getElementById('xmsg');
+  function msg(t, ok){ $xmsg.textContent = t; $xmsg.style.color = ok ? '#5fe0a0' : '#ff8a8a'; }
+  document.getElementById('xfer').addEventListener('click', function(){
+    $xout.value = makeCode(); $xin.value = ''; msg('', true);
+    $xbox.classList.add('on');
+  });
+  function closeX(){ $xbox.classList.remove('on'); resetLoad(); }
+  document.getElementById('xclose').addEventListener('click', closeX);
+  $xbox.addEventListener('pointerdown', function(e){ if(e.target === $xbox) closeX(); });
+  document.getElementById('xcopy').addEventListener('click', function(){
+    $xout.value = makeCode();
+    $xout.focus(); $xout.select(); $xout.setSelectionRange(0, $xout.value.length);
+    var done = false;
+    try{ done = document.execCommand('copy'); }catch(e){}
+    if(!done && navigator.clipboard){
+      navigator.clipboard.writeText($xout.value).then(function(){ msg('コピーしました', true); }, function(){ msg('選択しました。長押ししてコピーしてください', true); });
+      return;
+    }
+    msg(done ? 'コピーしました' : '選択しました。長押ししてコピーしてください', true);
+  });
+  // confirm() は埋め込み表示だとブロックされることがあるので、パネル内の2回押しで確認する
+  var pending = null, $xload = document.getElementById('xload');
+  function resetLoad(){ pending = null; $xload.textContent = '読み込む'; }
+  $xin.addEventListener('input', resetLoad);
+  $xload.addEventListener('click', function(){
+    if(pending){
+      applyCode(pending);
+      resetLoad();
+      $xout.value = makeCode();
+      $xin.value = '';
+      msg('読み込みました', true);
+      return;
+    }
+    var d = readCode($xin.value);
+    if(!d){ msg('コードが正しくありません。貼り付け漏れがないか確認してください', false); return; }
+    pending = d;
+    $xload.textContent = '上書きする（もう一度タップ）';
+    msg('今の進行状況がこのコードの内容で上書きされます', true);
+  });
+
+  // 自動クッキー（1回ごとに1個確定＋ラッキー判定）
+  var last = Date.now();
+  setInterval(function(){
+    var now = Date.now(), dt = now - last;
+    last = now;
+    // CPS: 直近5秒に増えたクッキーの平均（タップ・追加入手・自動すべて込み）。かっこ内はタップの基本1個を除いた分（ラッキー追加入手＋自動）
+    while(log.length && log[0][0] < now - 5000) log.shift();
+    var sum = 0, sumNt = 0;
+    for(var j = 0; j < log.length; j++){ sum += log[j][1]; sumNt += log[j][2]; }
+    var span = Math.max(1, Math.min(5, (now - t0) / 1000));
+    $cps.textContent = 'CPS ' + fmtRate(sum / span) + ' (' + fmtRate(sumNt / span) + ')';
+    // ボーナスのバー: 次の+1個までの進み具合（タップでも進むので、自動より前に更新）
+    $bar2.style.width = bonusLv > 0 ? Math.min(100, bonusCnt / bn(bonusLv) * 100) + '%' : '0%';
+    if(autoLv < 1) return;
+    var iv = curN * 10;
+    acc += dt;
+    if(acc >= iv){
+      var k = Math.floor(acc / iv), tot = 0;
+      acc -= k * iv;
+      for(var m = 0; m < k; m++) tot += roll();  // 自動入手1回ごとにラッキー判定
+      tot = applyBonus(tot);
+      count += tot;
+      if(dt <= 1000) gain(tot, tot);  // 復帰直後のまとめ入手はCPSに含めない
+      var r = $c.getBoundingClientRect();
+      pop(r.left + r.width/2, r.bottom, tot, tot > k);
+      render();
+    }
+    $bar.style.width = Math.min(100, acc / iv * 100) + '%';
+  }, 100);
+
+  setInterval(save, 3000);
+  document.addEventListener('visibilitychange', function(){ if(document.hidden) save(); });
+  window.addEventListener('pagehide', save);
+  render();
+  // 縦向きで中身が1画面を超えるときは、全体を縮めてスクロールなしで収める（再描画の前に戻して測るのでちらつかない）
+  function fit(){
+    var app = document.getElementById('app');
+    app.style.zoom = '';
+    if(!window.matchMedia('(orientation:portrait)').matches) return;
+    var cs = getComputedStyle(document.body);
+    var avail = window.innerHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    var h = app.offsetHeight;
+    if(h > avail) app.style.zoom = Math.max(0.6, avail / h).toFixed(3);
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', fit);
+  setInterval(fit, 400);
+  fit();
+})();
+
+// オフライン用: 公開（https）したときだけ、ページを端末に保存する仕組みを登録する。ファイルを直接開いたときは何もしない
+if('serviceWorker' in navigator && /^https?:/.test(location.protocol)){
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+}
+</script>
+</body>
+</html>
